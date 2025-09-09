@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model InwardInvoice {
+  id                 Int             @id @default(autoincrement())
+  invoiceNumber      String          @unique
+  suppliedBy         String? // Either string or internal transfer b/w our locations
+  isInternalTransfer Boolean         @default(false)
+  transportInfo      String?
+  status             invoiceStatus   @default(inTransit)
+  invoiceDate        DateTime        @default(now())
+  inwardProduct      InwardProduct[]
+  inward             Inward[]
+  uploadedBy         User            @relation(fields: [uploadedById], references: [id])
+  uploadedById       Int
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @default(now()) @updatedAt
+}
+
+model Inward {
+  id              Int             @id @default(autoincrement())
+  inwardInvoice   InwardInvoice   @relation(fields: [inwardInvoiceId], references: [id])
+  inwardInvoiceId Int
+  inwardProduct   InwardProduct[]
+  receivedOn      DateTime
+  receivedBy      User            @relation(fields: [receivedById], references: [id])
+  receivedById    Int
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now()) @updatedAt
+}
+
+model InwardProduct {
+  id                 Int                 @id @default(autoincrement())
+  inwardInvoiceId    Int
+  productCode        String
+  rate               Float
+  amount             Float
+  orderQty           Float               @default(0)
+  recivedQty         Float               @default(0)
+  shortageQty        Float               @default(0)
+  damageQty          Float               @default(0)
+  inwardInvoice      InwardInvoice       @relation(fields: [inwardInvoiceId], references: [id], onDelete: Cascade)
+  product            Variant             @relation(fields: [productCode], references: [code])
+  inwardProductItems InwardProductItem[]
+  inward             Inward[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+
+  @@unique([inwardInvoiceId, productCode])
+}
+
+model InwardProductItem {
+  id               Int           @id @default(autoincrement())
+  inwardProductId  Int
+  variantId        Int
+  uid              String?       @unique
+  isDamaged        Boolean       @default(false)
+  isDefault        Boolean?      @default(false)
+  isGenerated      Boolean?      @default(false)
+  quantity         Int
+  usedQuantity     Int           @default(0)
+  returnedQuantity Int           @default(0) // by cancelling order(by admin/user) when order is approved/packed
+  rate             Float
+  scanType         String
+  inwardProduct    InwardProduct @relation(fields: [inwardProductId], references: [id])
+  variant          Variant       @relation(fields: [variantId], references: [id])
+  saleProduct      Product[]
+  verifiedBy       User?         @relation(fields: [verifiedById], references: [id])
+  verifiedById     Int?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @default(now()) @updatedAt
+}
+
+model User {
+  id                Int                 @id @default(autoincrement())
+  role              userRole
+  name              String
+  email             String              @unique
+  phone             String?
+  userName          String?
+  password          String?
+  userStatus        userStatus?
+  address           Address[]
+  Cart              Cart?               @relation()
+  Order             Order[]             @relation("UserOrders") // Orders placed by this user
+  PackedOrders      Order[]             @relation("PackedByOrders") // Orders packed by this user
+  delivery          Delivery[]
+  verifiedInwards   Inward[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  InwardProductItem InwardProductItem[]
+  InwardInvoice     InwardInvoice[]
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  active    Boolean
+  isActive  Boolean  @default(true)
+  order     Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id            Int             @id @default(autoincrement())
+  name          String          @unique
+  isActive      Boolean         @default(true)
+  masterProduct MasterProduct[]
+  image         String?
+  description   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Category {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique
+  isActive         Boolean            @default(true)
+  image            String?
+  description      String?
+  masterProduct    MasterProduct[]
+  featuredCategory FeaturedCategory[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model FeaturedCategory {
+  id         Int      @id @default(autoincrement())
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int      @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/**
+ * types in featuredproduct
+ * -> atleast 50% discount = "hot"
+ * -> weekly bestsellers = "weekly"
+ * -> clearance sale = "clearance"
+ */
+model FeaturedProduct {
+  id              Int           @id @default(autoincrement())
+  type            String?
+  masterProduct   MasterProduct @relation(fields: [masterProductId], references: [id])
+  masterProductId Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Cart {
+  id        Int       @id @default(autoincrement())
+  user      User      @relation(fields: [userId], references: [id])
+  userId    Int       @unique
+  product   Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model MasterProduct {
+  id              Int               @id @default(autoincrement())
+  name            String
+  description     String?
+  uom             String
+  brand           Brand             @relation(fields: [brandId], references: [id])
+  brandId         Int
+  category        Category          @relation(fields: [categoryId], references: [id])
+  categoryId      Int
+  // variant     Variant  @relation(fields: [variantId], references: [id])
+  // variantId   Int
+  onSale          Boolean           @default(true)
+  product         Product[]
+  featuredProduct FeaturedProduct[]
+  variants        Variant[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Product {
+  id                Int                 @id @default(autoincrement())
+  masterProduct     MasterProduct       @relation(fields: [masterProductId], references: [id])
+  masterProductId   Int
+  variant           Variant             @relation(fields: [variantId], references: [id])
+  variantId         Int
+  availableQuantity Int                 @default(0) // dont use this field for any calculation
+  quantity          Int                 @default(0) // this is the quantity of the product in the cart and ordered
+  cart              Cart?               @relation(fields: [cartId], references: [id])
+  cartId            Int?
+  order             Order?              @relation(fields: [orderId], references: [id])
+  orderId           Int?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  InwardProductItem InwardProductItem[] @relation()
+}
+
+model Variant {
+  id                Int                 @id @default(autoincrement())
+  masterProduct     MasterProduct       @relation(fields: [masterProductId], references: [id])
+  masterProductId   Int
+  defaultVariant    Boolean             @default(true)
+  code              String              @unique
+  product           Product[]
+  quantity          String
+  price             Float
+  discount          Float               @default(0) // discount is in pernetage on mrp (after calculation) => sellingPrice
+  sellingPrice      Float // the selling price of the product after applying discount
+  mrp               Float?
+  images            String[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  // masterProduct     MasterProduct[]
+  InwardProduct     InwardProduct[]
+  InwardProductItem InwardProductItem[]
+}
+
+model Order {
+  id         Int        @id @default(autoincrement())
+  orderId    String     @unique
+  user       User       @relation("UserOrders", fields: [userId], references: [id])
+  userId     Int //customer
+  packedBy   User?      @relation("PackedByOrders", fields: [packedById], references: [id])
+  packedById Int? //packedBy
+  address    Address    @relation(fields: [addressId], references: [id])
+  addressId  Int
+  product    Product[]
+  total      Float
+  status     String // 'pending','approved', 'packed','delivered', 'cancelledbyuser', 'cancelledbyadmin
+  delivery   Delivery[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  payment    Payment?   @relation(fields: [paymentId], references: [id])
+  paymentId  Int?       @unique
+}
+
+model Payment {
+  id            Int       @id @default(autoincrement())
+  amount        Float
+  currency      String    @default("INR")
+  method        String // "cod" "card", "upi", "cash", etc.
+  status        String // "pending", "paid", "failed", etc.
+  transactionId String? // From Razorpay, Stripe, etc.
+  order         Order?    @relation
+  paidAt        DateTime? // When the payment was completed
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Delivery {
+  id        Int      @id @default(autoincrement())
+  order     Order    @relation(fields: [orderId], references: [id])
+  orderId   Int      @unique
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  status    String // 'none', 'assigned'
+  delivered Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MarketingBaners {
+  id          Int      @id @default(autoincrement())
+  bannerImage String?
+  rediretUrl  String?
+  expiresOn   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum userRole {
+  admin
+  user
+  delivery
+}
+
+enum userStatus {
+  unauthorized
+  active
+  inactive
+}
+
+enum invoiceStatus {
+  inTransit
+  received
+  completed
+}
