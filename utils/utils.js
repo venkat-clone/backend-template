@@ -18,7 +18,10 @@ const formatZodError = (validationResult) => {
 }
 const validateRequest = (schema) => (req, res, next) => {
     const validationResult = schema.safeParse(req.body);
-
+    console.log(validationResult);
+    console.log(`Validation Result Success : ${validationResult.success}`);
+    console.log(`Validation Result Error : ${validationResult.error}`);
+    console.log(`Validation Result Data : ${JSON.stringify(req.body)}`);
     if (!validationResult.success) {
         const userFriendlyErrors = formatZodError(validationResult);
         return res.status(400).json({error: userFriendlyErrors});

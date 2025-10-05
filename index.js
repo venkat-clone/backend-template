@@ -7,7 +7,11 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const {globalErrorHandler, prismaErrorHandler} = require("./utils/utils");
 
-app.use(cors());
+app.use(cors({
+    origin: true,
+    credentials: true,
+    }
+));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.static('public'));

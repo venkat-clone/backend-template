@@ -3,13 +3,14 @@ const prisma = require('../config/config');
 const getUserList = async (where, skip, take, orderBy) => {
     console.log(`[UserRepository] Getting User list`, { where, skip, take, orderBy });
     const query = {
-        where,
-        skip,
-        take,
-        orderBy,
-        include: {
-
-        },
+      where,
+      skip,
+      take,
+      orderBy,
+      omit: {
+        password: true,
+      },
+      include: {},
     };
 
     const [Users, count] = await prisma.$transaction([
@@ -24,25 +25,24 @@ const getUserList = async (where, skip, take, orderBy) => {
 const createUser = async (data, role,vehicle,Location) => {
     console.log(`[UserRepository] Creating User`, data);
     return prisma.user.create({
-        data: {
-            ...data,
-            
-            ...(role?.length && {
-                        role: { create: role }
-                    }),
+      omit: {
+        password: true,
+      },
+      data: {
+        ...data,
 
+        ...(role?.length && {
+          role: { create: role },
+        }),
 
-            ...(vehicle?.length && {
-                        vehicle: { create: vehicle }
-                    }),
+        ...(vehicle?.length && {
+          vehicle: { create: vehicle },
+        }),
 
-
-            ...(Location?.length && {
-                        Location: { create: Location }
-                    }),
-
-
-        }
+        ...(Location?.length && {
+          Location: { create: Location },
+        }),
+      },
     });
 };
 
@@ -50,18 +50,24 @@ const getUserById = async (id) => {
     console.log(`[UserRepository] Getting User by id: ${id}`);
 
     return prisma.user.findUnique({
-        where: { id: Number(id) },
-        include: {
-            role:true
-        }
+      where: { id: Number(id) },
+      omit: {
+        password: true,
+      },
+      include: {
+        role: true,
+      },
     });
 };
 
 const updateUser = async (id, data) => {
     console.log(`[classNameRepository] Updating className: ${id}`, data);
     return prisma.user.update({
-        where: { id:  Number(id)  },
-        data,
+      omit: {
+        password: true,
+      },
+      where: { id: Number(id) },
+      data,
     });
 };
 
@@ -71,7 +77,16 @@ const updateUser = async (id, data) => {
 
 };
 
-
+const getUserByPhone = async (phone,options) => {
+    const {includePassword} = options || {};
+    console.log(`[UserRepository] Getting User by phone: ${phone}`);
+    return prisma.user.findFirst({
+        omit: {
+            password: !includePassword,
+        },
+        where: {phone},
+    });
+}
 
 
 const upsertUser = async (data) => {
@@ -87,12 +102,11 @@ const upsertUser = async (data) => {
 };
 
 module.exports = {
-    createUser,
-    updateUser,
-    deleteUser,
-    getUserList,
-    getUserById,
-    upsertUser,
-    
-
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserList,
+  getUserById,
+  upsertUser,
+  getUserByPhone,
 };

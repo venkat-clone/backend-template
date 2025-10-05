@@ -13,7 +13,7 @@ const LocationRoutes = require('./LocationRoutes');
 const ExtraChargeRoutes = require('./ExtraChargeRoutes');
 const VehicleRoutes = require('./VehicleRoutes');
 const VehicleTypeRoutes = require('./VehicleTypeRoutes');
-
+const AuthRouter = require('./auth.routes');
 indexRouter.get('/', function (req, res, next) {
   res.render('index', { title: 'Express' });
 });
@@ -27,7 +27,7 @@ indexRouter.use('/location', LocationRoutes);
 indexRouter.use('/extracharge', ExtraChargeRoutes);
 indexRouter.use('/vehicle', VehicleRoutes);
 indexRouter.use('/vehicletype', VehicleTypeRoutes);
-
+indexRouter.use('/auth', AuthRouter);
 
 indexRouter.use(prismaErrorHandler);
 
